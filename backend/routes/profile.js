@@ -383,6 +383,11 @@ router.put('/profile', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'User ID is required' });
     }
     
+    // 필수 필드 검증 - name이 있어야 함
+    if (name === undefined || name === null || name === '') {
+      return res.status(400).json({ error: 'Name is required' });
+    }
+    
     // role 검증 - 잘못된 role이 있으면 에러
     if (role !== undefined && !['mentor', 'mentee'].includes(role)) {
       return res.status(400).json({ error: 'Invalid role. Must be mentor or mentee' });

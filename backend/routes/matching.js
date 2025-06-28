@@ -74,7 +74,7 @@ router.post('/match-requests', authenticateToken, async (req, res) => {
   try {
     const authenticatedUserId = req.user.sub;
     const userRole = req.user.role;
-    const { mentorId, menteeId, message } = req.body; // API 명세서에 맞게 menteeId 포함
+    const { mentorId, menteeId, message } = req.body;
     
     // 멘티만 요청 가능
     if (userRole !== 'mentee') {
@@ -82,13 +82,19 @@ router.post('/match-requests', authenticateToken, async (req, res) => {
     }
     
     // 입력 검증
-    if (!mentorId || !menteeId || !message) {
-      return res.status(400).json({ error: 'Mentor ID, mentee ID, and message are required' });
+    if (!mentorId || !message) {
+      return res.status(400).json({ error: 'Mentor ID and message are required' });
     }
     
-    // 인증된 사용자와 요청 바디의 menteeId가 일치하는지 확인 (보안)
-    if (parseInt(authenticatedUserId) !== parseInt(menteeId)) {
-      return res.status(400).json({ error: 'You can only send requests as yourself' });
+    // menteeId가 제공되었다면 인증된 사용자와 일치하는지 확인
+    // 제공되지 않았다면 인증된 사용자 ID 사용
+    let finalMenteeId = menteeId;
+    if (menteeId) {
+      if (parseInt(authenticatedUserId) !== parseInt(menteeId)) {
+        return res.status(400).json({ error: 'You can only send requests as yourself' });
+      }
+    } else {
+      finalMenteeId = authenticatedUserId;
     }
     
     const db = getDatabase();
@@ -108,60 +114,59 @@ router.post('/match-requests', authenticateToken, async (req, res) => {
     if (!mentor) {
       return res.status(404).json({ error: 'Mentor not found' });
     }
-    
-    // 중복 요청 확인 (같은 멘토에게)
+     // 중복 요청 확인 (같은 멘토에게)
     const existingRequest = await new Promise((resolve, reject) => {
       db.get(
         'SELECT id FROM matching_requests WHERE mentee_id = ? AND mentor_id = ?',
-        [menteeId, mentorId],
+        [finalMenteeId, mentorId],
         (err, row) => {
           if (err) reject(err);
           else resolve(row);
         }
       );
     });
-    
+
     if (existingRequest) {
       return res.status(400).json({ error: 'You have already sent a request to this mentor' });
     }
-    
+
     // 다른 멘토에게 보낸 pending 요청 확인 (비즈니스 로직: 한 번에 하나의 요청만)
     const pendingRequest = await new Promise((resolve, reject) => {
       db.get(
         'SELECT id, mentor_id FROM matching_requests WHERE mentee_id = ? AND status = ?',
-        [menteeId, 'pending'],
+        [finalMenteeId, 'pending'],
         (err, row) => {
           if (err) reject(err);
           else resolve(row);
         }
       );
     });
-    
+
     if (pendingRequest) {
       return res.status(400).json({ 
         error: 'You already have a pending request. Please wait for a response or cancel it first.' 
       });
     }
-    
+
     // 매칭 요청 생성
     const result = await new Promise((resolve, reject) => {
       db.run(
         'INSERT INTO matching_requests (mentee_id, mentor_id, message) VALUES (?, ?, ?)',
-        [menteeId, mentorId, message],
+        [finalMenteeId, mentorId, message],
         function(err) {
           if (err) reject(err);
           else resolve({ id: this.lastID });
         }
       );
     });
-    
-    console.log(`✅ Matching request created: Mentee ${menteeId} -> Mentor ${mentorId}`);
-    
+
+    console.log(`✅ Matching request created: Mentee ${finalMenteeId} -> Mentor ${mentorId}`);
+
     // API 스펙에 맞는 응답 형식
     res.status(200).json({ 
       id: result.id,
       mentorId: mentorId,
-      menteeId: menteeId,
+      menteeId: finalMenteeId,
       message: message,
       status: 'pending'
     });

@@ -82,16 +82,16 @@ router.post('/match-requests', authenticateToken, async (req, res) => {
     }
     
     // 입력 검증
-    if (!mentorId || !message) {
-      return res.status(400).json({ error: 'Mentor ID and message are required' });
+    if (!mentorId || !menteeId || !message) {
+      return res.status(400).json({ error: 'Mentor ID, mentee ID, and message are required' });
     }
     
-    // menteeId가 제공되었다면 인증된 사용자와 일치하는지 확인
-    // 제공되지 않았다면 인증된 사용자 ID 사용
-    let finalMenteeId = menteeId || authenticatedUserId;
-    if (menteeId && parseInt(authenticatedUserId) !== parseInt(menteeId)) {
+    // menteeId가 인증된 사용자와 일치하는지 확인
+    if (parseInt(authenticatedUserId) !== parseInt(menteeId)) {
       return res.status(400).json({ error: 'You can only send requests as yourself' });
     }
+    
+    let finalMenteeId = menteeId;
     
     const db = getDatabase();
     
@@ -158,7 +158,7 @@ router.post('/match-requests', authenticateToken, async (req, res) => {
 
     console.log(`✅ Matching request created: Mentee ${finalMenteeId} -> Mentor ${mentorId}`);
 
-    // API 스펙에 맞는 응답 형식
+    // API 스펙에 맞는 응답 형식 (200 OK 또는 201 Created)
     res.status(201).json({ 
       id: result.id,
       mentorId: mentorId,
@@ -591,71 +591,101 @@ router.delete('/match-requests/:id', authenticateToken, async (req, res) => {
     const userRole = req.user.role;
     const requestId = req.params.id;
     
+    // 입력 검증
+    if (!requestId || isNaN(requestId)) {
+      return res.status(400).json({ error: 'Valid request ID is required' });
+    }
+    
+    // 멘티만 요청 취소 가능
+    if (userRole !== 'mentee') {
+      return res.status(403).json({ error: 'Only mentees can cancel matching requests' });
+    }
+    
     const db = getDatabase();
     
-    // 먼저 요청이 존재하는지 확인
-    const existingRequest = await new Promise((resolve, reject) => {
-      db.get(
-        'SELECT * FROM matching_requests WHERE id = ?',
-        [requestId],
-        (err, row) => {
-          if (err) reject(err);
-          else resolve(row);
-        }
-      );
-    });
-    
-    if (!existingRequest) {
-      return res.status(404).json({ error: 'Matching request not found' });
-    }
-    
-    // 권한 확인 - 요청자만 취소 가능
-    if (userRole !== 'mentee' || existingRequest.mentee_id !== menteeId) {
-      return res.status(403).json({ error: 'Only the mentee who made the request can cancel it' });
-    }
-    
-    // pending 상태인지 확인
-    if (existingRequest.status !== 'pending') {
-      return res.status(400).json({ error: 'Only pending requests can be cancelled' });
-    }
-    
-    // 요청 취소
-    const result = await new Promise((resolve, reject) => {
-      db.run(
-        'UPDATE matching_requests SET status = ? WHERE id = ?',
-        ['cancelled', requestId],
-        function(err) {
-          if (err) reject(err);
-          else resolve({ changes: this.changes });
-        }
-      );
-    });
-    
-    console.log(`✅ Matching request cancelled: Request ${requestId} by Mentee ${menteeId}`);
-    
-    // 업데이트된 요청 정보 조회하여 반환 (API 명세서에 맞게)
-    const updatedRequest = await new Promise((resolve, reject) => {
-      db.get(
-        'SELECT * FROM matching_requests WHERE id = ?',
-        [requestId],
-        (err, row) => {
-          if (err) reject(err);
-          else resolve(row);
-        }
-      );
-    });
-    
-    if (updatedRequest) {
-      // camelCase로 변환하여 반환
-      res.json({
-        id: updatedRequest.id,
-        mentorId: updatedRequest.mentor_id,
-        menteeId: updatedRequest.mentee_id,
-        message: updatedRequest.message,
-        status: updatedRequest.status
+    // 트랜잭션 시작하여 동시성 문제 방지
+    await new Promise((resolve, reject) => {
+      db.run('BEGIN TRANSACTION', (err) => {
+        if (err) reject(err);
+        else resolve();
       });
-    } else {
-      res.status(500).json({ error: 'Failed to retrieve updated request' });
+    });
+    
+    try {
+      // 요청 존재 및 권한 확인 (FOR UPDATE로 락 설정)
+      const existingRequest = await new Promise((resolve, reject) => {
+        db.get(
+          'SELECT id, mentee_id, mentor_id, message, status FROM matching_requests WHERE id = ?',
+          [requestId],
+          (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+          }
+        );
+      });
+      
+      if (!existingRequest) {
+        await new Promise((resolve) => db.run('ROLLBACK', () => resolve()));
+        return res.status(404).json({ error: 'Matching request not found' });
+      }
+      
+      // 권한 확인 - 요청자만 취소 가능
+      if (parseInt(existingRequest.mentee_id) !== parseInt(menteeId)) {
+        await new Promise((resolve) => db.run('ROLLBACK', () => resolve()));
+        return res.status(403).json({ error: 'Only the mentee who made the request can cancel it' });
+      }
+      
+      // 상태 검증 - pending 상태만 취소 가능
+      if (existingRequest.status !== 'pending') {
+        await new Promise((resolve) => db.run('ROLLBACK', () => resolve()));
+        return res.status(400).json({ 
+          error: `Cannot cancel request with status '${existingRequest.status}'. Only pending requests can be cancelled.`
+        });
+      }
+      
+      // 요청 취소 (상태 업데이트)
+      const result = await new Promise((resolve, reject) => {
+        db.run(
+          'UPDATE matching_requests SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = ?',
+          ['cancelled', requestId, 'pending'],
+          function(err) {
+            if (err) reject(err);
+            else resolve({ changes: this.changes });
+          }
+        );
+      });
+      
+      // 업데이트가 실제로 발생했는지 확인
+      if (result.changes === 0) {
+        await new Promise((resolve) => db.run('ROLLBACK', () => resolve()));
+        return res.status(400).json({ 
+          error: 'Request could not be cancelled. It may have been already processed.' 
+        });
+      }
+      
+      // 트랜잭션 커밋
+      await new Promise((resolve, reject) => {
+        db.run('COMMIT', (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+      
+      console.log(`✅ Matching request cancelled: Request ${requestId} by Mentee ${menteeId}`);
+      
+      // API 명세서에 맞는 응답 형식 (200 OK)
+      res.status(200).json({
+        id: parseInt(requestId),
+        mentorId: existingRequest.mentor_id,
+        menteeId: existingRequest.mentee_id,
+        message: existingRequest.message,
+        status: 'cancelled'
+      });
+      
+    } catch (transactionError) {
+      // 트랜잭션 롤백
+      await new Promise((resolve) => db.run('ROLLBACK', () => resolve()));
+      throw transactionError;
     }
     
   } catch (error) {

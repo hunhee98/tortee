@@ -74,7 +74,7 @@ router.post('/match-requests', authenticateToken, async (req, res) => {
   try {
     const authenticatedUserId = req.user.sub;
     const userRole = req.user.role;
-    const { mentorId, message } = req.body; // menteeId는 인증된 사용자에서 가져옴
+    const { mentorId, menteeId, message } = req.body; // API 명세서에 맞게 menteeId 포함
     
     // 멘티만 요청 가능
     if (userRole !== 'mentee') {
@@ -82,12 +82,14 @@ router.post('/match-requests', authenticateToken, async (req, res) => {
     }
     
     // 입력 검증
-    if (!mentorId || !message) {
-      return res.status(400).json({ error: 'Mentor ID and message are required' });
+    if (!mentorId || !menteeId || !message) {
+      return res.status(400).json({ error: 'Mentor ID, mentee ID, and message are required' });
     }
     
-    // menteeId는 인증된 사용자의 ID 사용
-    const menteeId = authenticatedUserId;
+    // 인증된 사용자와 요청 바디의 menteeId가 일치하는지 확인 (보안)
+    if (parseInt(authenticatedUserId) !== parseInt(menteeId)) {
+      return res.status(400).json({ error: 'You can only send requests as yourself' });
+    }
     
     const db = getDatabase();
     

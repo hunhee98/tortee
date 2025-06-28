@@ -88,13 +88,9 @@ router.post('/match-requests', authenticateToken, async (req, res) => {
     
     // menteeId가 제공되었다면 인증된 사용자와 일치하는지 확인
     // 제공되지 않았다면 인증된 사용자 ID 사용
-    let finalMenteeId = menteeId;
-    if (menteeId) {
-      if (parseInt(authenticatedUserId) !== parseInt(menteeId)) {
-        return res.status(400).json({ error: 'You can only send requests as yourself' });
-      }
-    } else {
-      finalMenteeId = authenticatedUserId;
+    let finalMenteeId = menteeId || authenticatedUserId;
+    if (menteeId && parseInt(authenticatedUserId) !== parseInt(menteeId)) {
+      return res.status(400).json({ error: 'You can only send requests as yourself' });
     }
     
     const db = getDatabase();
@@ -595,28 +591,45 @@ router.delete('/match-requests/:id', authenticateToken, async (req, res) => {
     const userRole = req.user.role;
     const requestId = req.params.id;
     
-    // 멘티만 취소 가능
-    if (userRole !== 'mentee') {
-      return res.status(400).json({ error: 'Only mentees can cancel their requests' });
-    }
-    
     const db = getDatabase();
     
-    // 요청 취소 (pending 상태인 것만)
+    // 먼저 요청이 존재하는지 확인
+    const existingRequest = await new Promise((resolve, reject) => {
+      db.get(
+        'SELECT * FROM matching_requests WHERE id = ?',
+        [requestId],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+    
+    if (!existingRequest) {
+      return res.status(404).json({ error: 'Matching request not found' });
+    }
+    
+    // 권한 확인 - 요청자만 취소 가능
+    if (userRole !== 'mentee' || existingRequest.mentee_id !== menteeId) {
+      return res.status(403).json({ error: 'Only the mentee who made the request can cancel it' });
+    }
+    
+    // pending 상태인지 확인
+    if (existingRequest.status !== 'pending') {
+      return res.status(400).json({ error: 'Only pending requests can be cancelled' });
+    }
+    
+    // 요청 취소
     const result = await new Promise((resolve, reject) => {
       db.run(
-        'UPDATE matching_requests SET status = ? WHERE id = ? AND mentee_id = ? AND status = ?',
-        ['cancelled', requestId, menteeId, 'pending'],
+        'UPDATE matching_requests SET status = ? WHERE id = ?',
+        ['cancelled', requestId],
         function(err) {
           if (err) reject(err);
           else resolve({ changes: this.changes });
         }
       );
     });
-    
-    if (result.changes === 0) {
-      return res.status(404).json({ error: 'Matching request not found or cannot be cancelled' });
-    }
     
     console.log(`✅ Matching request cancelled: Request ${requestId} by Mentee ${menteeId}`);
     

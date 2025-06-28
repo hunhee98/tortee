@@ -180,14 +180,24 @@ router.put('/me', authenticateToken, async (req, res) => {
     const { name, bio, skillsets } = req.body;
     const db = getDatabase();
     
+    // 사용자 역할 확인
+    const userRole = req.user.role;
+    
+    // 필수 필드 검증
+    if (!name || name.trim() === '') {
+      return res.status(400).json({ error: 'Name is required' });
+    }
+    
+    // 멘토의 경우 skillsets 필수
+    if (userRole === 'mentor' && (!skillsets || !Array.isArray(skillsets) || skillsets.length === 0)) {
+      return res.status(400).json({ error: 'Skills are required for mentors' });
+    }
+    
     // skillsets를 JSON 문자열로 변환
     let skillsetsJson = null;
     if (skillsets && Array.isArray(skillsets)) {
       skillsetsJson = JSON.stringify(skillsets);
     }
-    
-    // 사용자 역할 확인
-    const userRole = req.user.role;
     
     // 멘티는 skillsets 설정 불가
     if (userRole === 'mentee' && skillsets) {
@@ -399,6 +409,11 @@ router.put('/profile', authenticateToken, async (req, res) => {
     // role 변경 시도시 에러 (보안상 역할 변경 불허)
     if (role !== undefined && role !== userRole) {
       return res.status(400).json({ error: 'Cannot change user role' });
+    }
+    
+    // 멘토는 skills가 필수
+    if (userRole === 'mentor' && (!skills || !Array.isArray(skills) || skills.length === 0)) {
+      return res.status(400).json({ error: 'Skills are required for mentors' });
     }
     
     // skillsets를 JSON 문자열로 변환

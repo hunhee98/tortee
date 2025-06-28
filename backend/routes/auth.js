@@ -106,8 +106,14 @@ router.post('/signup', async (req, res) => {
     const { email, password, name, role } = req.body;
     
     // 입력 검증
-    if (!email || !password || !role) {
-      return res.status(400).json({ error: 'Email, password, and role are required' });
+    if (!email || !password || !role || !name) {
+      return res.status(400).json({ error: 'Email, password, name, and role are required' });
+    }
+    
+    // 이메일 형식 검증
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
     }
     
     if (!['mentor', 'mentee'].includes(role)) {
@@ -188,9 +194,9 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     
-    // 입력 검증
+    // 입력 검증 - 필수 필드 누락시 401 반환
     if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+      return res.status(401).json({ error: 'Email and password are required' });
     }
     
     const db = getDatabase();
@@ -261,7 +267,7 @@ function authenticateToken(req, res, next) {
   
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {
-      return res.status(403).json({ error: 'Invalid or expired token' });
+      return res.status(401).json({ error: 'Invalid or expired token' });
     }
     req.user = user;
     next();

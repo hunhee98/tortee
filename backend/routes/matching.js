@@ -74,7 +74,7 @@ router.post('/match-requests', authenticateToken, async (req, res) => {
   try {
     const authenticatedUserId = req.user.sub;
     const userRole = req.user.role;
-    const { mentorId, menteeId, message } = req.body;
+    const { mentorId, message } = req.body; // menteeId는 인증된 사용자에서 가져옴
     
     // 멘티만 요청 가능
     if (userRole !== 'mentee') {
@@ -82,14 +82,12 @@ router.post('/match-requests', authenticateToken, async (req, res) => {
     }
     
     // 입력 검증
-    if (!mentorId || !menteeId || !message) {
-      return res.status(400).json({ error: 'Mentor ID, mentee ID, and message are required' });
+    if (!mentorId || !message) {
+      return res.status(400).json({ error: 'Mentor ID and message are required' });
     }
     
-    // 인증된 사용자와 요청 바디의 menteeId가 일치하는지 확인
-    if (parseInt(authenticatedUserId) !== parseInt(menteeId)) {
-      return res.status(403).json({ error: 'You can only send requests as yourself' });
-    }
+    // menteeId는 인증된 사용자의 ID 사용
+    const menteeId = authenticatedUserId;
     
     const db = getDatabase();
     
@@ -438,7 +436,31 @@ router.put('/match-requests/:id/accept', authenticateToken, async (req, res) => 
     });
     
     console.log(`✅ Matching request accepted: Request ${requestId} by Mentor ${mentorId}`);
-    res.json({ message: 'Matching request accepted successfully' });
+    
+    // 업데이트된 요청 정보 조회하여 반환 (API 명세서에 맞게)
+    const updatedRequest = await new Promise((resolve, reject) => {
+      db.get(
+        'SELECT * FROM matching_requests WHERE id = ?',
+        [requestId],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+    
+    if (updatedRequest) {
+      // camelCase로 변환하여 반환
+      res.json({
+        id: updatedRequest.id,
+        mentorId: updatedRequest.mentor_id,
+        menteeId: updatedRequest.mentee_id,
+        message: updatedRequest.message,
+        status: updatedRequest.status
+      });
+    } else {
+      res.status(500).json({ error: 'Failed to retrieve updated request' });
+    }
     
   } catch (error) {
     console.error('Accept matching request error:', error);
@@ -502,7 +524,31 @@ router.put('/match-requests/:id/reject', authenticateToken, async (req, res) => 
     }
     
     console.log(`✅ Matching request rejected: Request ${requestId} by Mentor ${mentorId}`);
-    res.json({ message: 'Matching request rejected successfully' });
+    
+    // 업데이트된 요청 정보 조회하여 반환 (API 명세서에 맞게)
+    const updatedRequest = await new Promise((resolve, reject) => {
+      db.get(
+        'SELECT * FROM matching_requests WHERE id = ?',
+        [requestId],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+    
+    if (updatedRequest) {
+      // camelCase로 변환하여 반환
+      res.json({
+        id: updatedRequest.id,
+        mentorId: updatedRequest.mentor_id,
+        menteeId: updatedRequest.mentee_id,
+        message: updatedRequest.message,
+        status: updatedRequest.status
+      });
+    } else {
+      res.status(500).json({ error: 'Failed to retrieve updated request' });
+    }
     
   } catch (error) {
     console.error('Reject matching request error:', error);
@@ -566,7 +612,31 @@ router.delete('/match-requests/:id', authenticateToken, async (req, res) => {
     }
     
     console.log(`✅ Matching request cancelled: Request ${requestId} by Mentee ${menteeId}`);
-    res.json({ message: 'Matching request cancelled successfully' });
+    
+    // 업데이트된 요청 정보 조회하여 반환 (API 명세서에 맞게)
+    const updatedRequest = await new Promise((resolve, reject) => {
+      db.get(
+        'SELECT * FROM matching_requests WHERE id = ?',
+        [requestId],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+    
+    if (updatedRequest) {
+      // camelCase로 변환하여 반환
+      res.json({
+        id: updatedRequest.id,
+        mentorId: updatedRequest.mentor_id,
+        menteeId: updatedRequest.mentee_id,
+        message: updatedRequest.message,
+        status: updatedRequest.status
+      });
+    } else {
+      res.status(500).json({ error: 'Failed to retrieve updated request' });
+    }
     
   } catch (error) {
     console.error('Cancel matching request error:', error);

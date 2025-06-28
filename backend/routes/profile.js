@@ -375,17 +375,32 @@ router.put('/profile', authenticateToken, async (req, res) => {
   // PUT /me와 동일한 로직 사용
   try {
     const userId = req.user.sub;
-    const { name, bio, skills } = req.body; // 명세서에 맞게 skills 사용
+    const { id, name, bio, skills, role } = req.body; // id, role 검증을 위해 추가
     const db = getDatabase();
+    
+    // 입력 검증 - id가 있어야 함 (API 명세서 요구사항)
+    if (id === undefined) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+    
+    // role 검증 - 잘못된 role이 있으면 에러
+    if (role !== undefined && !['mentor', 'mentee'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role. Must be mentor or mentee' });
+    }
+    
+    // 사용자 역할 확인
+    const userRole = req.user.role;
+    
+    // role 변경 시도시 에러 (보안상 역할 변경 불허)
+    if (role !== undefined && role !== userRole) {
+      return res.status(400).json({ error: 'Cannot change user role' });
+    }
     
     // skillsets를 JSON 문자열로 변환
     let skillsetsJson = null;
     if (skills && Array.isArray(skills)) {
       skillsetsJson = JSON.stringify(skills);
     }
-    
-    // 사용자 역할 확인
-    const userRole = req.user.role;
     
     // 멘티는 skills 설정 불가
     if (userRole === 'mentee' && skills) {

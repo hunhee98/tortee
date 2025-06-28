@@ -159,7 +159,7 @@ router.post('/match-requests', authenticateToken, async (req, res) => {
     console.log(`✅ Matching request created: Mentee ${finalMenteeId} -> Mentor ${mentorId}`);
 
     // API 스펙에 맞는 응답 형식
-    res.status(200).json({ 
+    res.status(201).json({ 
       id: result.id,
       mentorId: mentorId,
       menteeId: finalMenteeId,

@@ -1,7 +1,6 @@
 import axios, { AxiosResponse } from 'axios';
 import { 
   User, 
-  ApiResponse, 
   LoginRequest, 
   SignupRequest, 
   ProfileUpdateRequest,
@@ -40,37 +39,37 @@ api.interceptors.response.use(
 );
 
 export const authApi = {
-  signup: async (data: SignupRequest): Promise<ApiResponse<{ token: string; user: User }>> => {
-    const response: AxiosResponse<ApiResponse<{ token: string; user: User }>> = await api.post('/signup', data);
+  signup: async (data: SignupRequest): Promise<{ message?: string; userId?: number }> => {
+    const response: AxiosResponse<{ message?: string; userId?: number }> = await api.post('/signup', data);
     return response.data;
   },
 
-  login: async (data: LoginRequest): Promise<ApiResponse<{ token: string; user: User }>> => {
-    const response: AxiosResponse<ApiResponse<{ token: string; user: User }>> = await api.post('/login', data);
+  login: async (data: LoginRequest): Promise<{ token: string }> => {
+    const response: AxiosResponse<{ token: string }> = await api.post('/login', data);
     return response.data;
   },
 
-  getMe: async (): Promise<ApiResponse<User>> => {
-    const response: AxiosResponse<ApiResponse<User>> = await api.get('/me');
+  getMe: async (): Promise<User> => {
+    const response: AxiosResponse<User> = await api.get('/me');
     return response.data;
   },
 };
 
 export const profileApi = {
-  getProfile: async (): Promise<ApiResponse<User>> => {
-    const response: AxiosResponse<ApiResponse<User>> = await api.get('/profile');
+  getProfile: async (): Promise<User> => {
+    const response: AxiosResponse<User> = await api.get('/profile');
     return response.data;
   },
 
-  updateProfile: async (data: ProfileUpdateRequest): Promise<ApiResponse<User>> => {
-    const response: AxiosResponse<ApiResponse<User>> = await api.put('/profile', data);
+  updateProfile: async (data: ProfileUpdateRequest): Promise<User> => {
+    const response: AxiosResponse<User> = await api.put('/profile', data);
     return response.data;
   },
 
-  uploadProfileImage: async (file: File): Promise<ApiResponse<{ profile_image: string }>> => {
+  uploadProfileImage: async (file: File): Promise<{ profile_image: string }> => {
     const formData = new FormData();
     formData.append('profile_image', file);
-    const response: AxiosResponse<ApiResponse<{ profile_image: string }>> = await api.post('/profile/image', formData, {
+    const response: AxiosResponse<{ profile_image: string }> = await api.post('/profile/image', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -82,9 +81,7 @@ export const profileApi = {
 export const mentorApi = {
   getMentors: async (params?: { 
     skill?: string; 
-    search?: string; 
-    sortBy?: 'name' | 'skill' | 'created_at'; 
-    order?: 'asc' | 'desc' 
+    order_by?: 'name' | 'skill'; 
   }): Promise<User[]> => {
     const response: AxiosResponse<User[]> = await api.get('/mentors', { params });
     return response.data;
@@ -92,33 +89,33 @@ export const mentorApi = {
 };
 
 export const matchingApi = {
-  sendRequest: async (data: MatchingRequestCreate): Promise<ApiResponse<MatchingRequest>> => {
-    const response: AxiosResponse<ApiResponse<MatchingRequest>> = await api.post('/match-requests', data);
+  sendRequest: async (data: MatchingRequestCreate): Promise<MatchingRequest> => {
+    const response: AxiosResponse<MatchingRequest> = await api.post('/match-requests', data);
     return response.data;
   },
 
-  getMyRequests: async (): Promise<ApiResponse<MatchingRequest[]>> => {
-    const response: AxiosResponse<ApiResponse<MatchingRequest[]>> = await api.get('/match-requests/outgoing');
+  getMyRequests: async (): Promise<MatchingRequest[]> => {
+    const response: AxiosResponse<MatchingRequest[]> = await api.get('/match-requests/outgoing');
     return response.data;
   },
 
-  getReceivedRequests: async (): Promise<ApiResponse<MatchingRequest[]>> => {
-    const response: AxiosResponse<ApiResponse<MatchingRequest[]>> = await api.get('/match-requests/incoming');
+  getReceivedRequests: async (): Promise<MatchingRequest[]> => {
+    const response: AxiosResponse<MatchingRequest[]> = await api.get('/match-requests/incoming');
     return response.data;
   },
 
-  acceptRequest: async (requestId: number): Promise<ApiResponse<MatchingRequest>> => {
-    const response: AxiosResponse<ApiResponse<MatchingRequest>> = await api.put(`/match-requests/${requestId}/accept`);
+  acceptRequest: async (requestId: number): Promise<MatchingRequest> => {
+    const response: AxiosResponse<MatchingRequest> = await api.put(`/match-requests/${requestId}/accept`);
     return response.data;
   },
 
-  rejectRequest: async (requestId: number): Promise<ApiResponse<MatchingRequest>> => {
-    const response: AxiosResponse<ApiResponse<MatchingRequest>> = await api.put(`/match-requests/${requestId}/reject`);
+  rejectRequest: async (requestId: number): Promise<MatchingRequest> => {
+    const response: AxiosResponse<MatchingRequest> = await api.put(`/match-requests/${requestId}/reject`);
     return response.data;
   },
 
-  cancelRequest: async (requestId: number): Promise<ApiResponse<void>> => {
-    const response: AxiosResponse<ApiResponse<void>> = await api.delete(`/match-requests/${requestId}`);
+  cancelRequest: async (requestId: number): Promise<MatchingRequest> => {
+    const response: AxiosResponse<MatchingRequest> = await api.delete(`/match-requests/${requestId}`);
     return response.data;
   },
 };

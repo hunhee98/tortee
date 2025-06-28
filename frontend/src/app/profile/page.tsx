@@ -139,19 +139,14 @@ export default function ProfilePage() {
 
   const submitProfile = async (updateData: any) => {
     try {
-      const response = await profileApi.updateProfile(updateData);
-      
-      if (response.success && response.data) {
-        updateUser(response.data);
-        setSuccess('프로필이 성공적으로 업데이트되었습니다.');
-        setIsEditing(false);
-        setSelectedImage(null);
-        setImagePreview(null);
-      } else {
-        setError(response.error || '프로필 업데이트에 실패했습니다.');
-      }
+      const userData = await profileApi.updateProfile(updateData);
+      updateUser(userData);
+      setSuccess('프로필이 성공적으로 업데이트되었습니다.');
+      setIsEditing(false);
+      setSelectedImage(null);
+      setImagePreview(null);
     } catch (error: any) {
-      setError(error.message || '프로필 업데이트에 실패했습니다.');
+      setError(error.response?.data?.error || error.message || '프로필 업데이트에 실패했습니다.');
     } finally {
       setIsLoading(false);
     }

@@ -23,12 +23,10 @@ export interface Mentee extends User {
 
 export interface MatchingRequest {
   id: number;
-  mentee_id: number;
-  mentor_id: number;
+  menteeId: number;
+  mentorId: number;
   message: string;
   status: 'pending' | 'accepted' | 'rejected' | 'cancelled';
-  created_at: string;
-  updated_at?: string;
   mentee_name?: string;
   mentor_name?: string;
 }
@@ -38,7 +36,7 @@ export interface AuthResponse {
   user: User;
 }
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   message?: string;
@@ -58,9 +56,12 @@ export interface SignupRequest {
 }
 
 export interface ProfileUpdateRequest {
-  name?: string;
-  introduction?: string;
-  tech_stack?: string[];
+  id: number;
+  name: string;
+  role: 'mentor' | 'mentee';
+  bio: string;
+  image?: string;
+  skills?: string[];
 }
 
 export interface MatchingRequestCreate {

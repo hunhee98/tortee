@@ -17,17 +17,12 @@ export default function IncomingRequestsPage() {
       setLoading(true);
       setError('');
       
-      const response = await matchingApi.getReceivedRequests();
-      
-      if (response.success && response.data) {
-        setRequests(response.data);
-      } else {
-        setError(response.message || 'Failed to load requests');
-      }
+      const requestsData = await matchingApi.getReceivedRequests();
+      setRequests(requestsData);
       
     } catch (error: any) {
       console.error('Failed to fetch requests:', error);
-      setError(error.message || 'Failed to load requests');
+      setError(error.response?.data?.error || error.message || 'Failed to load requests');
     } finally {
       setLoading(false);
     }
@@ -46,17 +41,12 @@ export default function IncomingRequestsPage() {
     }
 
     try {
-      const response = await matchingApi.acceptRequest(requestId);
-      
-      if (response.success) {
-        alert('매칭 요청을 수락했습니다.');
-        fetchIncomingRequests(); // 목록 새로고침
-      } else {
-        alert(response.message || '요청 수락에 실패했습니다.');
-      }
+      await matchingApi.acceptRequest(requestId);
+      alert('매칭 요청을 수락했습니다.');
+      fetchIncomingRequests(); // 목록 새로고침
     } catch (error: any) {
       console.error('Failed to accept request:', error);
-      alert(error.message || '요청 수락에 실패했습니다.');
+      alert(error.response?.data?.error || error.message || '요청 수락에 실패했습니다.');
     }
   };
 
@@ -67,17 +57,12 @@ export default function IncomingRequestsPage() {
     }
 
     try {
-      const response = await matchingApi.rejectRequest(requestId);
-      
-      if (response.success) {
-        alert('매칭 요청을 거절했습니다.');
-        fetchIncomingRequests(); // 목록 새로고침
-      } else {
-        alert(response.message || '요청 거절에 실패했습니다.');
-      }
+      await matchingApi.rejectRequest(requestId);
+      alert('매칭 요청을 거절했습니다.');
+      fetchIncomingRequests(); // 목록 새로고침
     } catch (error: any) {
       console.error('Failed to reject request:', error);
-      alert(error.message || '요청 거절에 실패했습니다.');
+      alert(error.response?.data?.error || error.message || '요청 거절에 실패했습니다.');
     }
   };
 
@@ -187,18 +172,18 @@ export default function IncomingRequestsPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                       <div>
                         <p className="text-sm text-gray-500 mb-1">멘티 ID</p>
-                        <p className="text-gray-900">{request.mentee_id}</p>
+                        <p className="text-gray-900">{request.menteeId}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500 mb-1">요청 일시</p>
-                        <p className="text-gray-900">{new Date(request.created_at).toLocaleString('ko-KR')}</p>
+                        <p className="text-gray-900">{request.created_at ? new Date(request.created_at).toLocaleString('ko-KR') : '정보 없음'}</p>
                       </div>
                     </div>
 
                     {request.message && (
                       <div className="mb-4">
                         <p className="text-sm text-gray-500 mb-1">요청 메시지</p>
-                        <p className="text-gray-900 bg-gray-50 p-3 rounded-md request-message" data-mentee={request.mentee_id}>
+                        <p className="text-gray-900 bg-gray-50 p-3 rounded-md request-message" data-mentee={request.menteeId}>
                           {request.message}
                         </p>
                       </div>

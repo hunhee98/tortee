@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 export default function Navigation() {
   const { user, logout } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
 
   if (!user) {
     return null;
@@ -14,6 +15,11 @@ export default function Navigation() {
 
   const isActive = (path: string) => {
     return pathname === path ? 'bg-blue-700' : '';
+  };
+
+  const handleLogout = () => {
+    logout();
+    router.push('/');
   };
 
   return (
@@ -82,7 +88,7 @@ export default function Navigation() {
             </div>
             
             <button
-              onClick={logout}
+              onClick={handleLogout}
               className="px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
             >
               로그아웃

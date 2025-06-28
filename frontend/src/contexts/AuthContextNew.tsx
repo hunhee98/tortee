@@ -48,30 +48,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     try {
       const response = await authApi.login({ email, password });
-      if (response.token) {
-        localStorage.setItem('authToken', response.token);
-        // 토큰 저장 후 사용자 정보를 별도로 조회
-        const userData = await authApi.getMe();
-        setUser(userData);
-      } else {
-        throw new Error('로그인에 실패했습니다.');
-      }
-    } catch (error: any) {
-      throw new Error(error.response?.data?.error || error.message || '로그인에 실패했습니다.');
+      localStorage.setItem('authToken', response.token);
+      // 로그인 후 사용자 정보 조회
+      const userData = await authApi.getMe();
+      setUser(userData);
+    } catch (error) {
+      throw error;
     }
   };
 
   const signup = async (name: string, email: string, password: string, role: 'mentor' | 'mentee') => {
     try {
-      const response = await authApi.signup({ name, email, password, role });
-      if (response.message || response.userId) {
-        // 회원가입 성공 후 자동으로 로그인
-        await login(email, password);
-      } else {
-        throw new Error('회원가입에 실패했습니다.');
-      }
-    } catch (error: any) {
-      throw new Error(error.response?.data?.error || error.message || '회원가입에 실패했습니다.');
+      await authApi.signup({ name, email, password, role });
+      // 회원가입 후 자동 로그인
+      await login(email, password);
+    } catch (error) {
+      throw error;
     }
   };
 

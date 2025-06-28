@@ -6,7 +6,6 @@ import { User } from '@/types';
 import { mentorApi, matchingApi } from '@/lib/api';
 
 interface MentorFilters {
-  search: string;
   skills: string[];
   sortBy: 'name' | 'skill' | 'newest' | 'oldest';
 }
@@ -17,7 +16,6 @@ export default function MentorsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filters, setFilters] = useState<MentorFilters>({
-    search: '',
     skills: [],
     sortBy: 'name'
   });
@@ -33,16 +31,13 @@ export default function MentorsPage() {
       setError('');
       
       const params: any = {};
-      if (filters.search) params.search = filters.search;
       if (filters.skills.length > 0) params.skill = filters.skills[0]; // 백엔드는 한 번에 하나의 스킬만 지원
       
       // 정렬 파라미터 설정
       if (filters.sortBy === 'name') {
         params.order_by = 'name';
-        params.order = 'asc';
       } else if (filters.sortBy === 'skill') {
         params.order_by = 'skill';
-        params.order = 'asc';
       }
       // newest, oldest는 기본 정렬(id 기준)을 사용
 
@@ -58,7 +53,7 @@ export default function MentorsPage() {
       
     } catch (error: any) {
       console.error('Failed to fetch mentors:', error);
-      setError(error.message || 'Failed to load mentors');
+      setError(error.response?.data?.error || error.message || 'Failed to load mentors');
     } finally {
       setLoading(false);
     }
@@ -83,23 +78,19 @@ export default function MentorsPage() {
     }
 
     try {
-      const response = await matchingApi.sendRequest({
+      const matchRequest = await matchingApi.sendRequest({
         mentorId: selectedMentorId,
         menteeId: user?.id || 0,
         message: requestMessage
       });
 
-      if (response.success) {
-        alert('매칭 요청이 성공적으로 전송되었습니다!');
-        setShowRequestModal(false);
-        setRequestMessage('');
-        setSelectedMentorId(null);
-      } else {
-        alert(response.message || '매칭 요청 전송에 실패했습니다.');
-      }
+      alert('매칭 요청이 성공적으로 전송되었습니다!');
+      setShowRequestModal(false);
+      setRequestMessage('');
+      setSelectedMentorId(null);
     } catch (error: any) {
       console.error('Failed to send match request:', error);
-      alert(error.message || '매칭 요청 전송에 실패했습니다.');
+      alert(error.response?.data?.error || error.message || '매칭 요청 전송에 실패했습니다.');
     }
   };
 
@@ -136,21 +127,6 @@ export default function MentorsPage() {
         {/* 검색 및 필터 */}
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* 검색 */}
-            <div>
-              <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-2">
-                검색
-              </label>
-              <input
-                type="text"
-                id="search"
-                placeholder="멘토 이름 또는 키워드 검색..."
-                value={filters.search}
-                onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
             {/* 정렬 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
